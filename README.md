@@ -1,19 +1,57 @@
-0. Siapkan Kopi dan pisang goreng
-1. Install Python (versi 3.13)
-2. Install modul yang diperlukan dari cmd: pip install -r requirements.txt
-2.a. install playwright, cmd: playwright install
-3. Download rawdata sebagai bahan data kirim gc cmd: python scraping_all.py
-4. Lakukan pengolahan data hasil download yg ingin di kirim ke gc (misalnya filter hanya yang sudah diprofiling, aktif dan koordinatnya valid)
-5. Buat file csv baru dengan tambahan kolom hasilgc, isi kode yang sesuai (kode 99 tidak ditemukan, 1 ditemukan, 3 tutup, 4 ganda)
-5.a. data yang akan dikirim adalah "perusahaan_id", "latitude","longitude","hasilgc"
-5.b. PENTING: pastikan kode pada hasilgc sudah sesuai dengan ketentuan GC
-6. Jika data_gc_profiling sudah siap lanjut ke langkah submit ke GC
-7. Submit GC: python tandaiKirim.py username password OTP_opsional barisMulai.
-8. Kopinya dah dingin tuh :D
+# 🚀 Panduan Penggunaan Script GC
 
-DISKLAIMER: Gunakan script ini dengan bijak, jangan sampai melanggar aturan dari GC,
-diskusi dengan ketua tim, pimpinan jika sepakat, gaskeun.
-Motifnya bukan untuk banyak-banyakan, tapi memudahkan pekerjaan yang berulang,
-Pastikan data yang akan dikirim adalah data yang valid dan sesuai ketentuan.
 
-Happy GC Gaes :)
+## 📋 Langkah-Langkah Persiapan
+
+1. **Siapkan Kopi dan Pisang Goreng** ☕🍌  
+   Pastikan Anda siap dan energik!
+
+2. **Install Python (versi 3.13)** 🐍  
+   Pastikan Python versi terbaru terinstall di sistem Anda.
+
+3. **Install Modul yang Diperlukan** 📦  
+   Jalankan perintah berikut di command prompt:  
+   ```
+   pip install -r requirements.txt
+   ```
+
+4. **Install Playwright** 🎭  
+   Jalankan perintah:  
+   ```
+   playwright install
+   ```
+
+5. **Download Raw Data** 📥  
+   Jalankan script untuk mengunduh data:  
+   ```
+   python scraping_all.py
+   ```
+
+6. **Pengolahan Data** 🔄  
+   Olah data hasil download sesuai kebutuhan (misalnya, filter data yang sudah diprofiling, aktif, dan koordinat valid).
+
+7. **Buat File CSV Baru** 📊  
+   Tambahkan kolom `hasilgc` dengan kode yang sesuai:  
+   - `99`: Tidak ditemukan  
+   - `1`: Ditemukan  
+   - `3`: Tutup  
+   - `4`: Ganda  
+
+   **Kolom yang wajib dikirim:** `"perusahaan_id"`, `"latitude"`, `"longitude"`, `"hasilgc"`  
+   ⚠️ **PENTING:** Pastikan kode pada `hasilgc` sudah sesuai dengan ketentuan GC!
+
+8. **Submit ke GC** 📤  
+   Jika data sudah siap, jalankan:  
+   ```
+   python tandaiKirim.py username password OTP_opsional barisMulai
+   ```
+
+9. **Kopi Sudah Dingin?** 😄  
+   Waktunya istirahat sejenak!
+
+## ⚠️ Disclaimer
+
+> Gunakan script ini dengan bijak, jangan sampai melanggar aturan dari GC. Diskusikan dengan ketua tim dan pimpinan jika sepakat, lalu lanjutkan.  
+> Motifnya bukan untuk banyak-banyakan, tapi memudahkan pekerjaan yang berulang. Pastikan data yang akan dikirim adalah data yang valid dan sesuai ketentuan.
+
+**Happy GC Gaes! 🎉**
