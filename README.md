@@ -51,7 +51,9 @@
 
 ## ⚠️ Disclaimer
 
-> Gunakan script ini dengan bijak, jangan sampai melanggar aturan dari GC. Diskusikan dengan ketua tim dan pimpinan jika sepakat, lalu lanjutkan.  
-> Motifnya bukan untuk banyak-banyakan, tapi memudahkan pekerjaan yang berulang. Pastikan data yang akan dikirim adalah data yang valid dan sesuai ketentuan.
+> Gunakan script ini dengan bijak, jangan sampai melanggar aturan dari GC. Diskusikan dengan Ketua Tim dan Pimpinan.  
+> Motifnya bukan untuk banyak-banyakan, tapi memudahkan pekerjaan yang berulang, memudahkan menandai GC usaha yang sudah diprofiling pada kegiatan profiling sebelumnya dengan keyakinan bahwa ini sudah merupakan upaya terbaik.
+> Pastikan data yang akan dikirim adalah data yang valid dan sesuai ketentuan.
 
 **Happy GC Gaes! 🎉**
+
