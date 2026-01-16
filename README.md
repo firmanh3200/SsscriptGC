@@ -29,24 +29,26 @@
 
 6. **Pengolahan Data** 🔄  
    Olah data hasil download sesuai kebutuhan (misalnya, filter data yang sudah diprofiling, aktif, dan koordinat valid).
+   Tahap ini perlu hati-hati agar type data, format data asli tidak berubah, terutama perusahaan_id, latitute, dan longitude
 
-7. **Buat File CSV Baru** 📊  
+8. **Buat File CSV Baru** 📊
    Tambahkan kolom `hasilgc` dengan kode yang sesuai:  
    - `99`: Tidak ditemukan  
    - `1`: Ditemukan  
    - `3`: Tutup  
-   - `4`: Ganda  
+   - `4`: Ganda
+   >Cek-ricek kembali pastikan data sudah benar, isian maupun format datanya, PENTING: id_perusahaan harus persis seperti aslinya
 
    **Kolom yang wajib dikirim:** `"perusahaan_id"`, `"latitude"`, `"longitude"`, `"hasilgc"`  
    ⚠️ **PENTING:** Pastikan kode pada `hasilgc` sudah sesuai dengan ketentuan GC!
 
-8. **Submit ke GC** 📤  
+10. **Submit ke GC** 📤  
    Jika data sudah siap, jalankan:  
    ```
    python tandaiKirim.py username password OTP_opsional barisMulai
    ```
 
-9. **Kopi Sudah Dingin?** 😄  
+11. **Kopi Sudah Dingin?** 😄  
    Waktunya istirahat sejenak!
 
 ## ⚠️ Disclaimer
@@ -59,4 +61,5 @@
 
 
 >>Jika script gagal silakan cek kembali repo ini, siapa tahu ada update!
+
 
