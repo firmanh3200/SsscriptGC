@@ -31,7 +31,7 @@
    Olah data hasil download sesuai kebutuhan (misalnya, filter data yang sudah diprofiling, aktif, dan koordinat valid).
    Tahap ini perlu hati-hati agar type data, format data asli tidak berubah, terutama perusahaan_id, latitute, dan longitude
 
-8. **Buat File CSV Baru** 📊
+8. **Tambahkan kolom `hasilgc`** 📊
    Tambahkan kolom `hasilgc` dengan kode yang sesuai:  
    - `99`: Tidak ditemukan  
    - `1`: Ditemukan  
@@ -61,5 +61,6 @@
 
 
 >>Jika script gagal silakan cek kembali repo ini, siapa tahu ada update!
+
 
 
