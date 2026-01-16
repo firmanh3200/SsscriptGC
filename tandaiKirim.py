@@ -38,7 +38,8 @@ def main():
             if remote_version != version:
                 print(f"Versi saat ini: {version}")
                 print(f"Versi terbaru: {remote_version}")
-                print("Versi tidak cocok. Silakan update script.")
+                print("Gunakan versi terbaru. Silakan unduh dari:")
+                print("https://github.com/ketut/SsscriptGC")
                 sys.exit(1)
         else:
             print("Gagal mengambil versi terbaru. Melanjutkan...")
@@ -187,3 +188,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
