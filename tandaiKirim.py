@@ -6,7 +6,7 @@ import json
 import re
 from login import login_with_sso
 
-version = "1.2.1"
+version = "1.2.2"
 
 def extract_tokens(page):
     # Tunggu hingga tag meta token CSRF terpasang
@@ -272,3 +272,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
