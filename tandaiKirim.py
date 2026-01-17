@@ -26,6 +26,15 @@ def extract_tokens(page):
     if match:
         gc_token = match.group(2)
     else:
+        # Analisa konten error
+        if "Akses lewat matchapro mobile aja" in content or "Not Authorized" in content:
+            print("\n" + "="*50)
+            print("❌ ERROR FATAL: AKES DITOLAK SERVER")
+            print("Penyebab: Laptop ini terdeteksi sebagai Desktop, bukan Mobile.")
+            print("SOLUSI: Pastikan file 'login.py' di laptop ini SUDAH DIPERBARUI")
+            print("        agar sama persis dengan yang ada di laptop utama.")
+            print("="*50 + "\n")
+        
         # Simpan konten halaman untuk debugging jika token tidak ditemukan
         try:
             with open("debug_page_content.html", "w", encoding="utf-8") as f:
@@ -34,7 +43,7 @@ def extract_tokens(page):
         except Exception as e:
             print(f"Gagal menyimpan debug page: {e}")
             
-        raise Exception("Token tidak ditemukan")
+        raise Exception("Token tidak ditemukan (Cek pesan error di atas)")
     
     return _token, gc_token
 
@@ -78,6 +87,15 @@ def main():
 
     if page:
         try:
+            # DEBUG: Cek identitas browser
+            ua = page.evaluate("navigator.userAgent")
+            print(f"\n[INFO] Browser User Agent: {ua}")
+            if "Android" not in ua and "Mobile" not in ua:
+                print("⚠️  WARNING: Script tidak berjalan dalam mode Mobile!")
+                print("    Kemungkinan file 'login.py' belum diupdate di laptop ini.")
+            else:
+                print("[INFO] Mode Mobile aktif. Melanjutkan...\n")
+
             # Navigasi ke /dirgc
             url_gc = "https://matchapro.web.bps.go.id/dirgc"
             page.goto(url_gc)
@@ -104,7 +122,7 @@ def main():
                 "sec-ch-ua-mobile": "?1",
                 "sec-ch-ua-platform": "\"Android\"",
                 "upgrade-insecure-requests": "1",
-                "user-agent": "Mozilla/5.0 (Linux; Android 15; ONEPLUS PJZ110 Build/TP1A.220905.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.200 Mobile Safari/537.36",
+                "user-agent": "Mozilla/5.0 (Linux; Android 12; M2010J19CG Build/SKQ1.211202.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.192 Mobile Safari/537.36",
                 "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
                 "x-requested-with": "com.matchapro.app",
                 "sec-fetch-site": "same-origin",
@@ -153,71 +171,91 @@ def main():
                             print("Input tidak valid. Melanjutkan ke baris berikutnya.")
                             continue
                 
-                payload = f"perusahaan_id={perusahaan_id}&latitude={latitude}&longitude={longitude}&hasilgc={hasilgc}&gc_token={gc_token}&_token={_token}"
-                
-                response = requests.post(url, data=payload, headers=headers, cookies=session_cookies)
-                
-                print(f"Row {index}: {response.status_code} - {response.text}")
-                
-                # Catat baris terakhir
+                # Gunakan Playwright API Request untuk mengirim data (lebih aman dari blokir)
                 try:
-                    with open('baris.txt', 'w') as f:
-                        f.write(str(index))
-                except PermissionError:
-                    print(f"Warning: Tidak bisa menulis ke baris.txt untuk baris {index}")
-                
-                if response.status_code != 200:
-                    # Refresh tokens with retry mechanism
-                    print("Status code != 200, refreshing tokens...")
-                    max_retries = 3
-                    for attempt in range(max_retries):
+                    form_data = {
+                        "perusahaan_id": str(perusahaan_id),
+                        "latitude": str(latitude),
+                        "longitude": str(longitude),
+                        "hasilgc": str(hasilgc),
+                        "gc_token": gc_token,
+                        "_token": _token
+                    }
+                    
+                    # Headers tambahan spesifik untuk POST ini
+                    post_headers = {
+                        "origin": "https://matchapro.web.bps.go.id",
+                        "referer": "https://matchapro.web.bps.go.id/dirgc"
+                    }
+
+                    # Kirim request menggunakan context browser (cookies & session otomatis terpakai)
+                    response = page.request.post(url, form=form_data, headers=post_headers)
+                    
+                    status_code = response.status
+                    response_text = response.text()
+                    
+                    print(f"Row {index}: {status_code} - {response_text}")
+                    
+                    # Catat baris terakhir
+                    try:
+                        with open('baris.txt', 'w') as f:
+                            f.write(str(index))
+                    except PermissionError:
+                        print(f"Warning: Tidak bisa menulis ke baris.txt untuk baris {index}")
+                    
+                    if status_code != 200:
+                        # Refresh tokens with retry mechanism
+                        print("Status code != 200, refreshing tokens...")
+                        max_retries = 3
+                        for attempt in range(max_retries):
+                            try:
+                                page.reload()
+                                page.wait_for_load_state('networkidle')
+                                _token, gc_token = extract_tokens(page)
+                                print(f"Refreshed _token: {_token}")
+                                print(f"Refreshed gc_token: {gc_token}")
+                                # Update form data with new tokens for next retry if needed
+                                break  # Success, exit retry loop
+                            except Exception as e:
+                                print(f"Attempt {attempt + 1} failed: {e}")
+                                if attempt < max_retries - 1:
+                                    print("Retrying in 5 seconds...")
+                                    time.sleep(5)
+                                else:
+                                    print("Max retries reached. Silakan jalankan ulang script.")
+                                    sys.exit(1)
+                    else:
+                        # Update gc_token if present
                         try:
-                            page.reload()
-                            page.wait_for_load_state('networkidle')
-                            _token, gc_token = extract_tokens(page)
-                            print(f"Refreshed _token: {_token}")
-                            print(f"Refreshed gc_token: {gc_token}")
-                            # Update cookies
-                            cookies = page.context.cookies()
-                            session_cookies = {cookie['name']: cookie['value'] for cookie in cookies}
-                            break  # Success, exit retry loop
-                        except Exception as e:
-                            print(f"Attempt {attempt + 1} failed: {e}")
-                            if attempt < max_retries - 1:
-                                print("Retrying in 5 seconds...")
-                                time.sleep(5)
-                            else:
-                                print("Max retries reached. Silakan jalankan ulang script.")
-                                sys.exit(1)
-                else:
-                    # Update gc_token if present
+                            resp_json = response.json()
+                            if 'new_gc_token' in resp_json:
+                                gc_token = resp_json['new_gc_token']
+                                print(f"Updated gc_token: {gc_token}")
+                        except Exception:
+                            pass
+                    
+                    # Cek error untuk logging
                     try:
                         resp_json = response.json()
-                        if 'new_gc_token' in resp_json:
-                            gc_token = resp_json['new_gc_token']
-                            print(f"Updated gc_token: {gc_token}")
-                    except json.JSONDecodeError:
-                        pass
-                
-                # Cek error untuk logging
-                try:
-                    resp_json = response.json()
-                    if resp_json.get('status') == 'error':
-                        message = resp_json.get('message', '')
-                        if 'Usaha ini sudah diground check' not in message:
+                        if resp_json.get('status') == 'error':
+                            message = resp_json.get('message', '')
+                            if 'Usaha ini sudah diground check' not in message:
+                                try:
+                                    with open('error.txt', 'a') as f:
+                                        f.write(f"Row {index}: {response_text}\n")
+                                except Exception as e:
+                                    print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
+                    except Exception:
+                        # Jika bukan JSON, catat jika status code bukan 200
+                        if status_code != 200:
                             try:
                                 with open('error.txt', 'a') as f:
-                                    f.write(f"Row {index}: {response.text}\n")
+                                    f.write(f"Row {index}: Status {status_code} - {response_text}\n")
                             except Exception as e:
                                 print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
-                except json.JSONDecodeError:
-                    # Jika bukan JSON, catat jika status code bukan 200
-                    if response.status_code != 200:
-                        try:
-                            with open('error.txt', 'a') as f:
-                                f.write(f"Row {index}: Status {response.status_code} - {response.text}\n")
-                        except Exception as e:
-                            print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
+
+                except Exception as e:
+                     print(f"Error during request logging for row {index}: {e}")
                 
                 # Delay untuk menghindari rate limit
                 time.sleep(5)
@@ -234,4 +272,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
