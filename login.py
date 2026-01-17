@@ -1,5 +1,22 @@
 from playwright.sync_api import sync_playwright
 import sys
+import random
+
+user_agan = [
+    "Mozilla/5.0 (Linux; Android 16; ONEPLUS 15 Build/SKQ1.211202.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.192 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 15; SM-S928B Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.88 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8a Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/130.0.6723.102 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 15; POCO X7 Pro Build/UKQ1.231003.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.45 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 16; SM-A556E Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/134.0.6998.88 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 14; ONEPLUS PJZ110 Build/SKQ1.210216.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/132.0.6834.102 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 15; Redmi Note 14 Pro Build/UKQ1.231003.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/133.0.6943.127 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/134.0.6998.45 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 14; moto g85 5G Build/S3SGS32.12-78-7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.6778.200 Mobile Safari/537.36",
+    "Mozilla/5.0 (Linux; Android 15; SM-G991B Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/132.0.6834.88 Mobile Safari/537.36"
+]
+
+# Pilih user agent secara acak dari list yang terverifikasi
+user_agents = random.choice(user_agan)
 
 def login_with_sso(username, password, otp_code=None):
     """
@@ -11,7 +28,7 @@ def login_with_sso(username, password, otp_code=None):
     
     # Emulate mobile to avoid "Not Authorized" / "Akses lewat matchapro mobile aja"
     context = browser.new_context(
-        user_agent="Mozilla/5.0 (Linux; Android 12; M2010J19CG Build/SKQ1.211202.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.192 Mobile Safari/537.36",
+        user_agent=user_agents,
         viewport={"width": 412, "height": 915},
         is_mobile=True,
         has_touch=True,
@@ -23,6 +40,16 @@ def login_with_sso(username, password, otp_code=None):
         }
     )
     page = context.new_page()
+    
+    # Tambahkan script untuk mengubah navigator properties agar lebih mirip mobile
+    page.add_init_script("""
+        Object.defineProperty(navigator, 'platform', {
+            get: function() { return 'Linux armv8l'; }
+        });
+        Object.defineProperty(navigator, 'maxTouchPoints', {
+            get: function() { return 5; }
+        });
+    """)
 
     try:
         # Navigasi ke halaman login
