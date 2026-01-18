@@ -113,7 +113,7 @@ def main():
             url = "https://matchapro.web.bps.go.id/dirgc/konfirmasi-user"
 
             # Baca CSV
-            df = pd.read_csv('data_gc_profiling_bahan_kirim.csv')
+            df = pd.read_csv('data_gc_profiling_bahan_kirim.csv', encoding='cp1252')
 
             headers = {
                 "host": "matchapro.web.bps.go.id",
@@ -272,3 +272,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
