@@ -4,6 +4,7 @@ import pandas as pd
 from tqdm import tqdm
 from login import login_with_sso
 import re
+import csv
 
 # ------------------------------------------------------
 # KONFIGURASI - HARUS DIUPDATE SESUAI STATUS TERBARU
@@ -196,6 +197,15 @@ def main():
 
     print(f"\nSelesai mengumpulkan {len(all_records):,} record")
 
+    # Bersihkan data dari karakter newline dan tab yang bisa merusak CSV (khusus alamat_usaha, kegiatan_usaha, dan nama_usaha)
+    for record in all_records:
+        if 'alamat_usaha' in record and isinstance(record['alamat_usaha'], str):
+            record['alamat_usaha'] = record['alamat_usaha'].replace('\n', ' ').replace('\t', ' ').replace('\r', ' ')
+        if 'kegiatan_usaha' in record and isinstance(record['kegiatan_usaha'], str):
+            record['kegiatan_usaha'] = record['kegiatan_usaha'].replace('\n', ' ').replace('\t', ' ').replace('\r', ' ')
+        if 'nama_usaha' in record and isinstance(record['nama_usaha'], str):
+            record['nama_usaha'] = record['nama_usaha'].replace('\n', ' ').replace('\t', ' ').replace('\r', ' ')
+
     # Jadikan DataFrame (semua kolom otomatis ikut)
     df = pd.DataFrame(all_records)
 
@@ -204,7 +214,7 @@ def main():
 
     # Simpan ke CSV
     try:
-        df.to_csv(OUTPUT_CSV_FALLBACK, index=False, encoding='utf-8-sig',quoting=csv.QUOTE_ALL)
+        df.to_csv(OUTPUT_CSV_FALLBACK, index=False, encoding='utf-8-sig', quoting=csv.QUOTE_ALL)
         print(f"\nBerhasil disimpan ke: {OUTPUT_CSV_FALLBACK}")
         print(f"\nTips: Jika membuka csv di excel pilih dont convert")
         print(f"\nData hasil download dari matchapro ini merupakan data sesudah dan sebelum profiling, wajin diolah terlebih dahulu sebelum dikirim")
@@ -215,5 +225,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
