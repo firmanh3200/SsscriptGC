@@ -45,11 +45,11 @@
 10. **Submit ke GC** 📤  
    Jika data sudah siap, jalankan:  
    ```
-   python tandaiKirim.py username password OTP_opsional barisMulai
+   python tandaiKirim.py username password OTP (hanya jika menggunakan OTP)
    ```
    atau 
    ```
-   py tandaiKirim.py username password OTP_opsional barisMulai
+   py tandaiKirim.py username password OTP ((hanya jika menggunakan OTP)
    ```
 >> nomor baris yang terakhir dikirim tersimpan di file baris.txt, eksekusi script selanjutnya akan melanjutkan baris sesuai dengan baris.txt
 
@@ -72,6 +72,7 @@
 #### ⚠️ Untuk menjaga integritas data, pastikan data input valid
 
 >>Jika script gagal silakan cek kembali repo ini, siapa tahu ada update!
+
 
 
 
