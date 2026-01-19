@@ -6,7 +6,7 @@ import json
 import re
 from login import login_with_sso, user_agents
 
-version = "1.2.2"
+version = "1.2.3"
 
 def extract_tokens(page):
     # Tunggu hingga tag meta token CSRF terpasang
@@ -183,7 +183,7 @@ def main():
                             continue
                 
                 # Gunakan Playwright API Request untuk mengirim data (lebih aman dari blokir)
-                max_request_retries = 3
+                max_request_retries = 5
                 request_success = False
                 
                 for request_attempt in range(max_request_retries):
@@ -209,19 +209,28 @@ def main():
                         status_code = response.status
                         response_text = response.text()
                         
-                        # Check if it's a token invalid error that needs refresh
-                        is_token_error = False
+                        # Check if it's an error that needs retry on the same row
+                        is_retryable_error = False
                         if status_code == 400:
                             try:
                                 resp_json = response.json()
                                 message = resp_json.get('message', '')
                                 if (resp_json.get('status') == 'error' and 
                                     'Token invalid atau sudah terpakai. Silakan refresh halaman.' in message):
-                                    is_token_error = True
+                                    is_retryable_error = True
+                            except Exception:
+                                pass
+                        elif status_code == 503:
+                            try:
+                                resp_json = response.json()
+                                message = resp_json.get('message', '')
+                                if (resp_json.get('status') == 'error' and 
+                                    'Server sedang sibuk. Silakan coba lagi dalam beberapa detik.' in message):
+                                    is_retryable_error = True
                             except Exception:
                                 pass
                         
-                        if is_token_error:
+                        if is_retryable_error:
                             if request_attempt < max_request_retries - 1:
                                 print(f"Token invalid error for row {index} (attempt {request_attempt + 1}/{max_request_retries}). Refreshing tokens...")
                                 # Refresh tokens
@@ -231,7 +240,7 @@ def main():
                                     _token, gc_token = extract_tokens(page)
                                     print(f"Refreshed _token: {_token}")
                                     print(f"Refreshed gc_token: {gc_token}")
-                                    time.sleep(2)  # Brief pause before retry
+                                    time.sleep(5)  # Brief pause before retry
                                     continue  # Retry the request with new tokens
                                 except Exception as token_refresh_error:
                                     print(f"Failed to refresh tokens: {token_refresh_error}")
@@ -301,7 +310,8 @@ def main():
                         if resp_json.get('status') == 'error':
                             message = resp_json.get('message', '')
                             if ('Usaha ini sudah diground check' not in message and
-                                'Token invalid atau sudah terpakai. Silakan refresh halaman.' not in message):
+                                'Token invalid atau sudah terpakai. Silakan refresh halaman.' not in message and
+                                'Server sedang sibuk. Silakan coba lagi dalam beberapa detik.' not in message):
                                 try:
                                     with open('error.txt', 'a') as f:
                                         f.write(f"Row {index}: {response_text}\n")
@@ -317,7 +327,7 @@ def main():
                                 print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
                 
                 # Delay untuk menghindari rate limit
-                time.sleep(6)
+                time.sleep(7)
 
             print("Semua pengiriman selesai.")
 
@@ -331,5 +341,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
