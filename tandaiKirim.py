@@ -6,8 +6,8 @@ import json
 import re
 from login import login_with_sso, user_agents
 
-version = "1.2.3"
-
+version = "1.2.4"
+motd = 1
 def extract_tokens(page):
     # Tunggu hingga tag meta token CSRF terpasang
     page.wait_for_selector('meta[name="csrf-token"]', state='attached', timeout=10000)
@@ -65,6 +65,16 @@ def main():
     except Exception as e:
         print(f"Gagal mengecek versi: {e}. Melanjutkan...")
 
+    # Cek MOTD dan tampilkan pesan jika motd = 1
+    try:
+        motd_response = requests.get("https://dev.ketut.web.id/TGlrZWxpaG9vZA.txt", timeout=10)
+        if motd_response.status_code == 200:
+            motd_data = motd_response.json()
+            if motd_data.get("motd") == 1:
+                print(motd_data.get("message", ""))
+    except Exception as e:
+        pass  # Jika gagal, skip
+
     if len(sys.argv) < 3:
         print("Usage: python tandaiKirim.py <username> <password> [otp_code] [nomor baris]")
         sys.exit(1)
@@ -117,7 +127,7 @@ def main():
             df = None
             for enc in encodings_to_try:
                 try:
-                    df = pd.read_csv('data_gc_profiling_bahan_kirim.csv', encoding=enc)
+                    df = pd.read_csv('GC_TDK_DITEMUKAN.csv', encoding=enc)
                     print(f"Berhasil membaca dengan encoding: {enc}")
                     break
                 except UnicodeDecodeError:
@@ -208,6 +218,64 @@ def main():
                         
                         status_code = response.status
                         response_text = response.text()
+                        
+                        # Handle 429 Too Many Requests
+                        if status_code == 429:
+                            try:
+                                resp_json = response.json()
+                                message = resp_json.get('message', 'Terlalu banyak permintaan.')
+                                retry_after = resp_json.get('retry_after', 600)  # default 10 menit
+                                
+                                print("\n" + "="*50)
+                                print(f"❌ STATUS 429: {message}")
+                                print("="*50)
+                                
+                                # Parse waktu dari message jika ada (contoh: "10 menit")
+                                wait_time_seconds = retry_after
+                                
+                                # Coba ekstrak waktu dari message
+                                import re
+                                time_match = re.search(r'(\d+)\s*(menit|detik|jam)', message.lower())
+                                if time_match:
+                                    time_value = int(time_match.group(1))
+                                    time_unit = time_match.group(2)
+                                    
+                                    if time_unit == 'menit':
+                                        wait_time_seconds = time_value * 60
+                                    elif time_unit == 'detik':
+                                        wait_time_seconds = time_value
+                                    elif time_unit == 'jam':
+                                        wait_time_seconds = time_value * 3600
+                                
+                                # Tambahkan 10 detik sebagai buffer
+                                wait_time_seconds += 10
+                                
+                                print(f"⏳ Menunggu {wait_time_seconds} detik ({wait_time_seconds//60} menit {wait_time_seconds%60} detik)...")
+                                print("="*50 + "\n")
+                                
+                                # Tunggu sesuai waktu yang ditentukan
+                                time.sleep(wait_time_seconds)
+                                
+                                # Refresh tokens setelah menunggu
+                                print("Refreshing tokens setelah menunggu...")
+                                page.reload()
+                                page.wait_for_load_state('networkidle')
+                                _token, gc_token = extract_tokens(page)
+                                print(f"Refreshed _token: {_token}")
+                                print(f"Refreshed gc_token: {gc_token}")
+                                
+                                # Retry request yang sama
+                                if request_attempt < max_request_retries - 1:
+                                    time.sleep(5)
+                                    continue
+                                else:
+                                    print(f"Max retries reached untuk baris {index} setelah 429 error")
+                                    break
+                            except Exception as e:
+                                print(f"Error processing 429 response: {e}")
+                                print("Menunggu 10 menit sebagai fallback...")
+                                time.sleep(610)  # 10 menit + 10 detik
+                                continue
                         
                         # Check if it's an error that needs retry on the same row
                         is_retryable_error = False
@@ -327,7 +395,7 @@ def main():
                                 print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
                 
                 # Delay untuk menghindari rate limit
-                time.sleep(7)
+                time.sleep(15)
 
             print("Semua pengiriman selesai.")
 
