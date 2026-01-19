@@ -157,7 +157,7 @@ def main():
             df = None
             for enc in encodings_to_try:
                 try:
-                    df = pd.read_csv('GC_TDK_DITEMUKAN.csv', encoding=enc)
+                    df = pd.read_csv('data_gc_profiling_bahan_kirim.csv', encoding=enc)
                     print(f"Berhasil membaca dengan encoding: {enc}")
                     break
                 except UnicodeDecodeError:
@@ -515,4 +515,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
