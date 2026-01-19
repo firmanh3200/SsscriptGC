@@ -18,13 +18,27 @@ user_agan = [
 # Pilih user agent secara acak dari list yang terverifikasi
 user_agents = random.choice(user_agan)
 
+# Reuse a single Playwright instance to avoid starting/stopping inside runtime
+_PW = None
+def _get_playwright():
+    global _PW
+    if _PW is None:
+        _PW = sync_playwright().start()
+    return _PW
+
+def _stop_playwright():
+    global _PW
+    try:
+        if _PW is not None:
+            _PW.stop()
+            _PW = None
+    except Exception:
+        pass
+
 def login_with_sso(username, password, otp_code=None):
-    """
-    Lakukan login SSO ke MatchaPro dan kembalikan objek halaman jika berhasil.
-    Returns: objek halaman jika login berhasil, None jika tidak.
-    """
-    p = sync_playwright().start()
-    browser = p.chromium.launch(headless=False)  # Set to True for headless
+    """Lakukan login SSO ke MatchaPro dan kembalikan objek halaman jika berhasil."""
+    pw = _get_playwright()
+    browser = pw.chromium.launch(headless=False)  # Set to True for headless
     
     # Emulate mobile to avoid "Not Authorized" / "Akses lewat matchapro mobile aja"
     context = browser.new_context(
@@ -94,12 +108,18 @@ def login_with_sso(username, password, otp_code=None):
         else:
             print("Login gagal. Periksa kredensial.")
             print(f"Current URL: {current_url}")
-            browser.close()
+            try:
+                browser.close()
+            except Exception:
+                pass
             return None, None
 
     except Exception as e:
         print(f"Error selama login: {e}")
-        browser.close()
+        try:
+            browser.close()
+        except Exception:
+            pass
         return None, None
 
 if __name__ == "__main__":
@@ -114,6 +134,16 @@ if __name__ == "__main__":
     page, browser = login_with_sso(username, password, otp_code)
     if page:
         print("Objek halaman diperoleh.")
-        browser.close()
+        try:
+            browser.close()
+        except Exception:
+            pass
     else:
         print("Gagal memperoleh objek halaman.")
+
+    # Stop global Playwright instance on exit
+    try:
+        _stop_playwright()
+    except Exception:
+        pass
+    
