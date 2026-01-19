@@ -4,10 +4,10 @@ import time
 import sys
 import json
 import re
-from loginKoprol import login_with_sso, user_agents
+from login import login_with_sso, user_agents
 
 
-version = "1.2.3"
+version = "1.2.4"
 
 def extract_tokens(page):
     # Tunggu hingga tag meta token CSRF terpasang
@@ -515,6 +515,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
