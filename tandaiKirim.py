@@ -395,7 +395,7 @@ def main():
                                 print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
                 
                 # Delay untuk menghindari rate limit
-                time.sleep(15)
+                time.sleep(32)
 
             print("Semua pengiriman selesai.")
 
@@ -409,5 +409,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
