@@ -69,11 +69,18 @@ def main():
     try:
         motd_response = requests.get("https://dev.ketut.web.id/TGlrZWxpaG9vZA.txt", timeout=10)
         if motd_response.status_code == 200:
-            motd_data = motd_response.json()
-            if motd_data.get("motd") == 1:
-                print(motd_data.get("message", ""))
+            motd_text = motd_response.text.strip()
+            print(f"[DEBUG] MOTD response: {motd_text}")  # Debug
+            try:
+                motd_data = motd_response.json()
+                if motd_data.get("motd") == 1:
+                    print(motd_data.get("message", ""))
+            except:
+                # Jika bukan JSON, asumsikan teks adalah motd
+                if motd_text == "1":
+                    print("Pesan MOTD aktif")  # Placeholder, ganti dengan pesan sebenarnya jika ada
     except Exception as e:
-        pass  # Jika gagal, skip
+        print(f"[DEBUG] Gagal cek MOTD: {e}")
 
     if len(sys.argv) < 3:
         print("Usage: python tandaiKirim.py <username> <password> [otp_code] [nomor baris]")
@@ -127,7 +134,7 @@ def main():
             df = None
             for enc in encodings_to_try:
                 try:
-                    df = pd.read_csv('data_gc_profiling_bahan_kirim.csv', encoding=enc)
+                    df = pd.read_csv('GC_TDK_DITEMUKAN.csv', encoding=enc)
                     print(f"Berhasil membaca dengan encoding: {enc}")
                     break
                 except UnicodeDecodeError:
@@ -330,6 +337,11 @@ def main():
                         
                     except Exception as e:
                         error_message = str(e).lower()
+                        if "timeout 30000ms exceeded" in error_message:
+                            print(f"Error processing 429 response: {e}")
+                            print("Menunggu 10 menit sebagai fallback...")
+                            time.sleep(600)  # 10 menit
+                            continue
                         is_retryable_error = (
                             "timed out" in error_message or 
                             "timeout" in error_message or
@@ -395,7 +407,7 @@ def main():
                                 print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
                 
                 # Delay untuk menghindari rate limit
-                time.sleep(32)
+                time.sleep(30)
 
             print("Semua pengiriman selesai.")
 
@@ -409,6 +421,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
