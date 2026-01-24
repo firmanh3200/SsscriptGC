@@ -67,33 +67,33 @@ def login_with_sso(username, password, otp_code=None):
 
     try:
         # Navigasi ke halaman login
-        page.goto("https://matchapro.web.bps.go.id/login")
+        page.goto("https://matchapro.web.bps.go.id/login", timeout=60000)
 
         # Klik tombol login SSO
-        page.click('#login-sso')
+        page.click('#login-sso', timeout=60000)
 
         # Tunggu navigasi ke halaman SSO
-        page.wait_for_load_state('networkidle')
+        page.wait_for_load_state('networkidle', timeout=60000)
 
         # Sekarang di halaman SSO, isi username dan password
-        page.fill('input[name="username"]', username)
-        page.fill('input[name="password"]', password)
+        page.fill('input[name="username"]', username, timeout=60000)
+        page.fill('input[name="password"]', password, timeout=60000)
 
         # Klik tombol submit
-        page.click('input[type="submit"]')
+        page.click('input[type="submit"]', timeout=60000)
 
         # Tunggu navigasi
-        page.wait_for_load_state('networkidle')
+        page.wait_for_load_state('networkidle', timeout=60000)
 
         # Cek apakah OTP diperlukan (TOTP)
         try:
             otp_input = page.locator('input[name="otp"]').first
-            if otp_input.is_visible(timeout=5000):
+            if otp_input.is_visible(timeout=60000):
                 if otp_code is None:
                     otp_code = input("Masukkan kode OTP: ")
-                otp_input.fill(otp_code)
-                page.click('input[type="submit"]')  # Submit OTP
-                page.wait_for_load_state('networkidle')
+                otp_input.fill(otp_code, timeout=60000)
+                page.click('input[type="submit"]', timeout=60000)  # Submit OTP
+                page.wait_for_load_state('networkidle', timeout=60000)
         except:
             pass  # Tidak perlu OTP
 
