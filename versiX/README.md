@@ -16,3 +16,6 @@ https://github.com/scito/extract_otp_secrets/releases
 ## DISCLAIMER
 - Pastikan untuk tetap menjaga kerahasiaan SECRET_KEY
 - Jangan pernah diposting di medsos
+
+### Notes
+- versi ini juga bisa digunakan untuk user tanpa OTP
