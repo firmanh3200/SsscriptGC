@@ -1,4 +1,6 @@
-playwright
+psutil
+pyotp
 requests
 pandas
 tqdm
+playwright
