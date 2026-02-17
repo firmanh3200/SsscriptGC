@@ -4,125 +4,16 @@ import time
 import sys
 import json
 import re
-import psutil
 import pyotp
 from loginX import login_with_sso, user_agents
 
-version = "1.2.5"  # Auto Session Refresh
+version = "1.2.6"  # Auto Session Refresh
 motd = 1
 
 def generate_otp(secret_key):
     """Generate OTP menggunakan secret key"""
     totp = pyotp.TOTP(secret_key)
     return totp.now()
-
-def check_vpn_connection():
-    """
-    Check apakah VPN (FortiClient) terkonek
-    Returns: True jika terkonek, False jika tidak
-    """
-    # Check FortiClient/FortiSSLVPN process
-    forticlient_running = False
-    vpn_process_names = ['forticlient', 'fortisslvpn', 'fortivpn', 'openvpn']
-    
-    for proc in psutil.process_iter(['name']):
-        try:
-            proc_name = proc.info['name'].lower()
-            for vpn_name in vpn_process_names:
-                if vpn_name in proc_name:
-                    forticlient_running = True
-                    break
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            continue
-        if forticlient_running:
-            break
-    
-    if not forticlient_running:
-        return False
-    
-    # Check VPN IP address (BPS VPN menggunakan 10.x.x.x)
-    for interface, addrs in psutil.net_if_addrs().items():
-        for addr in addrs:
-            if addr.family == 2:  # AF_INET (IPv4)
-                # Check if IP is in private range yang biasa dipakai VPN BPS
-                if addr.address.startswith('10.'):
-                    return True
-    
-    return False
-
-def check_vpn_or_exit():
-    """
-    Check VPN connection, exit script jika tidak terkonek
-    """
-    print("\n" + "="*70)
-    print("🔒 Mengecek Koneksi VPN...")
-    print("="*70)
-    
-    if check_vpn_connection():
-        print("✅ VPN TERKONEK - Script dapat dilanjutkan")
-        print("="*70 + "\n")
-        return True
-    else:
-        print("\n" + "="*70)
-        print("❌ VPN TIDAK TERKONEK!")
-        print("\nScript memerlukan koneksi VPN untuk mengakses MatchaPro.")
-        print("\nLangkah-langkah:")
-        print("  1. Buka FortiClient VPN")
-        print("  2. Connect ke VPN BPS")
-        print("  3. Tunggu sampai status Connected")
-        print("  4. Jalankan script ini lagi")
-        print("="*70)
-        sys.exit(1)
-
-def wait_for_vpn_reconnect(max_wait_seconds=300, check_interval=5):
-    """
-    Tunggu VPN reconnect dengan countdown
-    Args:
-        max_wait_seconds: Maksimal waktu tunggu (default 5 menit)
-        check_interval: Interval check dalam detik (default 5 detik)
-    Returns:
-        True jika VPN berhasil reconnect, False jika timeout
-    """
-    print("\n" + "="*70)
-    print("⚠️  VPN TERPUTUS!")
-    print("="*70)
-    print(f"\nMenunggu VPN reconnect (maksimal {max_wait_seconds} detik)...")
-    print("Silakan reconnect VPN secara manual atau tunggu auto-reconnect...\n")
-    
-    elapsed = 0
-    while elapsed < max_wait_seconds:
-        remaining = max_wait_seconds - elapsed
-        print(f"\r⏳ Mengecek VPN... (sisa waktu: {remaining}s)   ", end='', flush=True)
-        
-        # Check VPN tanpa print verbose
-        if check_vpn_connection():
-            print("\n\n" + "="*70)
-            print("✅ VPN BERHASIL RECONNECT!")
-            print("="*70)
-            print("Melanjutkan proses...\n")
-            return True
-        
-        time.sleep(check_interval)
-        elapsed += check_interval
-    
-    print("\n\n" + "="*70)
-    print("❌ TIMEOUT - VPN tidak reconnect dalam waktu yang ditentukan")
-    print("="*70)
-    return False
-
-def monitor_vpn_and_wait_if_disconnected():
-    """
-    Monitor VPN, jika terputus maka tunggu sampai reconnect
-    Returns: True jika VPN aktif (atau berhasil reconnect), False jika gagal
-    """
-    if not check_vpn_connection():
-        # VPN terputus, tunggu reconnect
-        if wait_for_vpn_reconnect():
-            return True
-        else:
-            print("\n❌ Script dihentikan karena VPN tidak dapat reconnect")
-            return False
-    return True
 
 def extract_tokens(page):
     # Tunggu hingga tag meta token CSRF terpasang
@@ -164,9 +55,6 @@ def extract_tokens(page):
     return _token, gc_token
 
 def main():
-    # Check VPN connection terlebih dahulu
-    check_vpn_or_exit()
-    
     # Pengecekan versi
     try:
         response = requests.get("https://dev.ketut.web.id/ver.txt", timeout=10)
@@ -656,13 +544,6 @@ def main():
                         )
                         
                         if is_retryable_error:
-                            print(f"\n⚠️  Network error terdeteksi: {e}")
-                            print("🔍 Checking VPN connection...")
-                            if not monitor_vpn_and_wait_if_disconnected():
-                                print("\n❌ VPN terputus dan tidak dapat reconnect. Script dihentikan.")
-                                break
-                        
-                        if is_retryable_error:
                             if request_attempt < max_request_retries - 1:
                                 print(f"Connection error untuk row {index} (attempt {request_attempt + 1}/{max_request_retries}): {e}. Retrying in 5 seconds...")
                                 time.sleep(5)
@@ -731,11 +612,6 @@ def main():
                                     f.write(f"Row {index}: Status {status_code} - {response_text}\n")
                             except Exception as e:
                                 print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
-                
-                # Check VPN sebelum delay
-                if not monitor_vpn_and_wait_if_disconnected():
-                    print("\n❌ Script dihentikan karena VPN terputus dan tidak dapat reconnect")
-                    break
                 
             print("Semua pengiriman selesai.")
 
