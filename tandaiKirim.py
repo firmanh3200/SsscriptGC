@@ -6,7 +6,7 @@ import json
 import re
 from login import login_with_sso, user_agents
 
-version = "1.2.5"
+version = "1.2.6"
 motd = 1
 def extract_tokens(page):
     # Tunggu hingga tag meta token CSRF terpasang
@@ -198,10 +198,10 @@ def main():
                         else:
                             print("Input tidak valid. Melanjutkan ke baris berikutnya.")
                             continue
-                                # Handle NaN values for latitude and longitude
-                if pd.isna(latitude):
+                                # Handle NaN or empty values for latitude and longitude
+                if pd.isna(latitude) or str(latitude).strip() == '':
                     latitude = ""
-                if pd.isna(longitude):
+                if pd.isna(longitude) or str(longitude).strip() == '':
                     longitude = ""
                                 # Gunakan Playwright API Request untuk mengirim data (lebih aman dari blokir)
                 max_request_retries = 5
