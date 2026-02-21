@@ -4,13 +4,20 @@ import time
 import sys
 import json
 import re
-from login import login_with_sso, user_agents
+import pyotp
+from loginX import login_with_sso, user_agents
 
-version = "1.2.6"
+version = "1.2.6"  # Auto Session Refresh
 motd = 1
+
+def generate_otp(secret_key):
+    """Generate OTP menggunakan secret key"""
+    totp = pyotp.TOTP(secret_key)
+    return totp.now()
+
 def extract_tokens(page):
     # Tunggu hingga tag meta token CSRF terpasang
-    page.wait_for_selector('meta[name="csrf-token"]', state='attached', timeout=60000)
+    page.wait_for_selector('meta[name="csrf-token"]', state='attached', timeout=10000)
 
     # Ekstrak _token dari halaman (token CSRF dari tag meta)
     token_element = page.locator('meta[name="csrf-token"]')
@@ -83,14 +90,20 @@ def main():
         print(f"[DEBUG] Gagal cek MOTD: {e}")
 
     if len(sys.argv) < 3:
-        print("Usage: python tandaiKirim.py <username> <password> [OTP jika menggunakan OTP]")
+        print("Usage: python tandaiKirim.py <username> <password> [secret_key untuk OTP] [nomor_baris]")
         sys.exit(1)
 
     username = sys.argv[1]
     password = sys.argv[2]
-    otp_code = sys.argv[3] if len(sys.argv) > 3 else None
+    secret_key = sys.argv[3] if len(sys.argv) > 3 else None  # Secret key untuk generate OTP
     nomor_baris = int(sys.argv[4]) if len(sys.argv) > 4 else None
-
+    
+    # Generate OTP jika ada secret_key
+    otp_code = None
+    if secret_key:
+        otp_code = generate_otp(secret_key)
+        print(f"[INFO] OTP Generated: {otp_code}")
+    
     # Jika nomor_baris tidak diberikan, baca dari baris.txt
     if nomor_baris is None:
         try:
@@ -115,8 +128,8 @@ def main():
 
             # Navigasi ke /dirgc
             url_gc = "https://matchapro.web.bps.go.id/dirgc"
-            page.goto(url_gc, timeout=60000)
-            page.wait_for_load_state('networkidle', timeout=60000)
+            page.goto(url_gc)
+            page.wait_for_load_state('networkidle')
 
             # Ekstrak tokens
             _token, gc_token = extract_tokens(page)
@@ -162,8 +175,70 @@ def main():
                 "accept-language": "en-GB,en-US;q=0.9,en;q=0.8",
             }
 
+            # Session refresh configuration
+            request_count = 0
+            total_processed = 0  # Counter untuk emergency refresh (429 error)
+            SESSION_REFRESH_THRESHOLD = 1000  # Refresh session setiap 1000 request
+            
+            print(f"\n{'='*70}")
+            print(f"🔄 AUTO SESSION REFRESH: Aktif setiap {SESSION_REFRESH_THRESHOLD} request")
+            print(f"{'='*70}\n")
+
             # Loop untuk setiap baris mulai dari nomor_baris
             for index in range(nomor_baris, len(df)):
+                # Check apakah perlu refresh session (normal atau karena 429 error)
+                if (request_count > 0 and request_count % SESSION_REFRESH_THRESHOLD == 0) or total_processed == 999:
+                    if total_processed == 999:
+                        print("\n" + "="*70)
+                        print(f"🚨 EMERGENCY SESSION REFRESH: Triggered by 429 error")
+                        print("="*70)
+                    else:
+                        print("\n" + "="*70)
+                        print(f"🔄 SESSION REFRESH: {request_count} request tercapai")
+                        print("="*70)
+                    
+                    print("Re-login untuk mendapatkan session baru...")
+                    
+                    # Reset counters
+                    total_processed = 0
+                    request_count = 0  # Reset request counter untuk session baru
+                    
+                    try:
+                        # Close browser lama
+                        browser.close()
+                        time.sleep(2)
+                        
+                        # Generate OTP baru untuk re-login (jika menggunakan OTP)
+                        if secret_key:
+                            otp_code = generate_otp(secret_key)
+                            print(f"[INFO] OTP baru di-generate: {otp_code}")
+                        
+                        # Login ulang dengan credentials yang sama
+                        print(f"Login ulang sebagai: {username}")
+                        page, browser = login_with_sso(username, password, otp_code)
+                        
+                        if not page or not browser:
+                            print("❌ Re-login gagal! Menghentikan script.")
+                            sys.exit(1)
+                        
+                        # Navigasi ulang ke halaman GC
+                        page.goto(url_gc)
+                        page.wait_for_load_state('networkidle')
+                        
+                        # Ekstrak tokens baru
+                        _token, gc_token = extract_tokens(page)
+                        print(f"✅ Session baru berhasil!")
+                        print(f"   New _token: {_token}")
+                        print(f"   New gc_token: {gc_token}")
+                        print("="*70 + "\n")
+                        
+                        # Tunggu sebentar sebelum melanjutkan
+                        time.sleep(3)
+                        
+                    except Exception as refresh_error:
+                        print(f"❌ Error saat refresh session: {refresh_error}")
+                        print("Mencoba melanjutkan dengan session lama...")
+                
                 row = df.iloc[index]
                 perusahaan_id = row['perusahaan_id']
                 latitude = row['latitude']
@@ -198,30 +273,52 @@ def main():
                         else:
                             print("Input tidak valid. Melanjutkan ke baris berikutnya.")
                             continue
-                                # Handle NaN or empty values for latitude and longitude
-                if pd.isna(latitude) or str(latitude).strip() == '':
+                
+                # Handle NaN values for latitude and longitude
+                if pd.isna(latitude):
                     latitude = ""
-                if pd.isna(longitude) or str(longitude).strip() == '':
+                if pd.isna(longitude):
                     longitude = ""
-                                # Gunakan Playwright API Request untuk mengirim data (lebih aman dari blokir)
+                
+                # Gunakan Playwright API Request untuk mengirim data (lebih aman dari blokir)
                 max_request_retries = 5
                 request_success = False
                 
                 for request_attempt in range(max_request_retries):
                     try:
+                        # Randomize time_on_page untuk lebih natural (5-15 detik)
+                        import random
+                        time_on_page = random.randint(16, 32)
+                        
                         form_data = {
                             "perusahaan_id": str(perusahaan_id),
                             "latitude": str(latitude),
                             "longitude": str(longitude),
                             "hasilgc": str(hasilgc),
                             "gc_token": gc_token,
+                            "edit_nama": "0",  # Tambahan parameter dari payload asli
+                            "edit_alamat": "0",  # Tambahan parameter dari payload asli
+                            "nama_usaha": "",  # Kosong jika tidak edit
+                            "alamat_usaha": "",  # Kosong jika tidak edit
+                            "time_on_page": str(time_on_page),  # Randomize untuk simulasi user behavior
                             "_token": _token
                         }
                         
-                        # Headers tambahan spesifik untuk POST ini
+                        # Headers tambahan spesifik untuk POST ini - matching HTTP Toolkit
                         post_headers = {
+                            "accept": "*/*",
+                            "accept-encoding": "gzip, deflate, br, zstd",
+                            "accept-language": "en-US,en;q=0.9",
+                            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
                             "origin": "https://matchapro.web.bps.go.id",
-                            "referer": "https://matchapro.web.bps.go.id/dirgc"
+                            "referer": "https://matchapro.web.bps.go.id/dirgc",
+                            "sec-ch-ua": '"Android WebView";v="143", "Chromium";v="143"',
+                            "sec-ch-ua-mobile": "?1",
+                            "sec-ch-ua-platform": '"Android"',
+                            "sec-fetch-dest": "empty",
+                            "sec-fetch-mode": "cors",
+                            "sec-fetch-site": "same-origin",
+                            "x-requested-with": "XMLHttpRequest"
                         }
 
                         # Kirim request menggunakan context browser (cookies & session otomatis terpakai)
@@ -233,9 +330,16 @@ def main():
                         # Handle 429 Too Many Requests
                         if status_code == 429:
                             try:
-                                resp_json = response.json()
-                                message = resp_json.get('message', 'Terlalu banyak permintaan.')
-                                retry_after = resp_json.get('retry_after', 600)  # default 10 menit
+                                # Try to parse JSON response
+                                try:
+                                    resp_json = response.json()
+                                    message = resp_json.get('message', 'Terlalu banyak permintaan.')
+                                    retry_after = resp_json.get('retry_after', 120)  # default 2 menit saja
+                                except (json.JSONDecodeError, ValueError):
+                                    # Response bukan JSON, gunakan default
+                                    message = 'Terlalu banyak permintaan (Rate Limit).'
+                                    retry_after = 120  # 2 menit saja, cukup untuk session refresh
+                                    print(f"⚠️  429 response bukan JSON, menggunakan default wait time")
                                 
                                 print("\n" + "="*50)
                                 print(f"❌ STATUS 429: {message}")
@@ -258,34 +362,114 @@ def main():
                                     elif time_unit == 'jam':
                                         wait_time_seconds = time_value * 3600
                                 
-                                # Tambahkan 10 detik sebagai buffer
-                                wait_time_seconds += 10
+                                # Jangan tambahkan buffer lagi, langsung pakai nilai retry_after
+                                # (sudah cukup konservatif di 2 menit)
                                 
-                                print(f"⏳ Menunggu {wait_time_seconds} detik ({wait_time_seconds//60} menit {wait_time_seconds%60} detik)...")
+                                print(f"💡 Akan melakukan session refresh untuk reset rate limit...")
+                                print(f"   Menutup browser dan akan login ulang...")
+                                
+                                # Tutup browser untuk trigger session refresh
+                                try:
+                                    if page:
+                                        page.close()
+                                    if browser:
+                                        browser.close()
+                                except:
+                                    pass
+                                
+                                # Reset counter untuk force session refresh di iterasi berikutnya
+                                total_processed = 999
+                                
+                                print(f"✅ Browser ditutup. Session akan di-refresh LANGSUNG pada iterasi berikutnya.")
+                                print(f"🚀 Tidak menunggu, langsung buka session baru...")
                                 print("="*50 + "\n")
                                 
-                                # Tunggu sesuai waktu yang ditentukan
-                                time.sleep(wait_time_seconds)
-                                
-                                # Refresh tokens setelah menunggu
-                                print("Refreshing tokens setelah menunggu...")
-                                page.reload()
-                                page.wait_for_load_state('networkidle')
-                                _token, gc_token = extract_tokens(page)
-                                print(f"Refreshed _token: {_token}")
-                                print(f"Refreshed gc_token: {gc_token}")
-                                
-                                # Retry request yang sama
-                                if request_attempt < max_request_retries - 1:
-                                    time.sleep(5)
-                                    continue
-                                else:
-                                    print(f"Max retries reached untuk baris {index} setelah 429 error")
-                                    break
+                                # Set flag untuk skip baris ini dan force session refresh
+                                request_success = False
+                                break  # Keluar dari retry loop
                             except Exception as e:
-                                print(f"Error processing 429 response: {e}")
-                                print("Menunggu 10 menit sebagai fallback...")
-                                time.sleep(610)  # 10 menit + 10 detik
+                                print(f"⚠️  Error processing 429 response: {e}")
+                                print(f"💡 Tetap melakukan session refresh meskipun ada error...")
+                                
+                                # Tutup browser untuk trigger session refresh
+                                try:
+                                    if page:
+                                        page.close()
+                                    if browser:
+                                        browser.close()
+                                except:
+                                    pass
+                                
+                                # Reset counter untuk force session refresh
+                                total_processed = 999
+                                
+                                print(f"✅ Browser ditutup. Session akan di-refresh LANGSUNG pada iterasi berikutnya.")
+                                print(f"🚀 Tidak menunggu, langsung buka session baru...")
+                                
+                                # Set flag untuk skip baris ini dan force session refresh
+                                request_success = False
+                                break  # Keluar dari retry loop
+                        
+                        # Handle 419 CSRF Token Mismatch
+                        if status_code == 419:
+                            try:
+                                resp_json = response.json()
+                                message = resp_json.get('message', '')
+                                if 'CSRF token mismatch' in message:
+                                    print("\n" + "="*50)
+                                    print(f"❌ STATUS 419: {message}")
+                                    print("="*50)
+                                    print(f"💡 CSRF token mismatch terdeteksi. Melakukan session refresh dan retry baris ini...")
+                                    
+                                    # Lakukan session refresh langsung di sini
+                                    print("Re-login untuk mendapatkan session baru...")
+                                    
+                                    # Reset counters
+                                    total_processed = 0
+                                    request_count = 0  # Reset request counter untuk session baru
+                                    
+                                    try:
+                                        # Close browser lama
+                                        browser.close()
+                                        time.sleep(2)
+                                        
+                                        # Generate OTP baru untuk re-login (jika menggunakan OTP)
+                                        if secret_key:
+                                            otp_code = generate_otp(secret_key)
+                                            print(f"[INFO] OTP baru di-generate: {otp_code}")
+                                        
+                                        # Login ulang dengan credentials yang sama
+                                        print(f"Login ulang sebagai: {username}")
+                                        page, browser = login_with_sso(username, password, otp_code)
+                                        
+                                        if not page or not browser:
+                                            print("❌ Re-login gagal! Menghentikan script.")
+                                            sys.exit(1)
+                                        
+                                        # Navigasi ulang ke halaman GC
+                                        page.goto(url_gc)
+                                        page.wait_for_load_state('networkidle')
+                                        
+                                        # Ekstrak tokens baru
+                                        _token, gc_token = extract_tokens(page)
+                                        print(f"✅ Session baru berhasil!")
+                                        print(f"   New _token: {_token}")
+                                        print(f"   New gc_token: {gc_token}")
+                                        print("="*50 + "\n")
+                                        
+                                        # Tunggu sebentar sebelum retry
+                                        time.sleep(3)
+                                        
+                                        # Retry request dengan session baru (continue loop)
+                                        continue
+                                        
+                                    except Exception as refresh_error:
+                                        print(f"❌ Error saat refresh session: {refresh_error}")
+                                        print("Melanjutkan dengan session lama...")
+                                        continue
+                            except Exception as e:
+                                print(f"⚠️  Error processing 419 response: {e}")
+                                print(f"💡 Tetap mencoba melanjutkan...")
                                 continue
                         
                         # Check if it's an error that needs retry on the same row
@@ -346,6 +530,8 @@ def main():
                             print("Menunggu 10 menit sebagai fallback...")
                             time.sleep(600)  # 10 menit
                             continue
+                        
+                        # Check VPN jika ada network error
                         is_retryable_error = (
                             "timed out" in error_message or 
                             "timeout" in error_message or
@@ -369,8 +555,17 @@ def main():
                             print(f"Error during request logging for row {index}: {e}")
                             break
                 
+                # Jika browser sudah ditutup karena 429, skip processing dan lanjut ke iterasi berikutnya
+                # (yang akan trigger session refresh karena total_processed = 999)
+                if total_processed == 999:
+                    print(f"⏭️  Skipping baris {index}, akan retry setelah session refresh...")
+                    continue
+                
                 # Jika request berhasil, lanjutkan dengan pemrosesan response
                 if request_success:
+                    # Increment request counter untuk session refresh
+                    request_count += 1
+                    
                     # Catat baris terakhir
                     try:
                         with open('baris.txt', 'w') as f:
@@ -387,6 +582,14 @@ def main():
                                 print(f"Updated gc_token: {gc_token}")
                         except Exception:
                             pass
+                    
+                    # Display progress
+                    print(f"[Progress: {request_count}/{SESSION_REFRESH_THRESHOLD} dalam session ini]")
+                    
+                    # Sleep sesuai time_on_page untuk simulasi user behavior yang konsisten
+                    # User benar-benar spend waktu di halaman sesuai yang dilaporkan
+                    print(f"⏳ Simulasi user behavior: waiting {time_on_page} detik (sesuai time_on_page)...")
+                    time.sleep(time_on_page)
                     
                     # Cek error untuk logging (hanya untuk response yang bukan token error)
                     try:
@@ -410,9 +613,6 @@ def main():
                             except Exception as e:
                                 print(f"Warning: Tidak bisa menulis ke error.txt untuk baris {index}: {e}")
                 
-                # Delay untuk menghindari rate limit
-                time.sleep(32)
-
             print("Semua pengiriman selesai.")
 
         except Exception as e:
@@ -425,6 +625,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
